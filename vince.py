@@ -1,25 +1,28 @@
-try:
-    
-    username = input("Enter Username: ").strip()
-    age = int(input("Enter Age: "))
+def main():
+    try:
+        username = input("Enter Username: ")
+        age_input = input("Enter Age: ")
 
-    if username == "" or age <= 0:
-        print("Invalid input!")
-    else:
-        
+        age = int(age_input)
+
         with open("users.txt", "a") as file:
             file.write(f"{username} - {age}\n")
 
-        print("\nUser saved successfully!")
+        print("\nData saved successfully.")
 
-        print("\n=== Saved Users ===")
+        print("--- Saved Users ---")
         with open("users.txt", "r") as file:
-            print(file.read())
+            content = file.read()
+            print(content)
 
-except ValueError:
-    print("Error: Age must be a number!")
+    except ValueError:
+        print("Error: Age must be a valid numerical integer.")
+    except FileNotFoundError:
+        print("Error: The file could not be found.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    finally:
+        print("System complete.")
 
-except Exception as e:
-    print("An error occurred:", e)
-finally:
-    print("\nSystem complete.")
+if __name__ == "__main__":
+    main()

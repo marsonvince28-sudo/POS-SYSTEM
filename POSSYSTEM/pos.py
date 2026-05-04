@@ -9,7 +9,7 @@ USERS = {
     "admin1":   {"password": "admin123", "role": "admin"},
 }
 
-# ---------- Login Window ----------
+# ---------- Login Window (unchanged) ----------
 class LoginWindow:
     def __init__(self):
         self.login_root = tk.Tk()
@@ -18,13 +18,11 @@ class LoginWindow:
         self.login_root.resizable(False, False)
         self.login_root.configure(bg="#f0f2f5")
 
-        # Center the window
         self.login_root.update_idletasks()
         x = (self.login_root.winfo_screenwidth() // 2) - (400 // 2)
         y = (self.login_root.winfo_screenheight() // 2) - (300 // 2)
         self.login_root.geometry(f"+{x}+{y}")
 
-        # UI elements
         tk.Label(self.login_root, text="POINT OF SALE SYSTEM", font=("Segoe UI", 16, "bold"),
                  bg="#f0f2f5", fg="#1e2a3a").pack(pady=20)
         tk.Label(self.login_root, text="Please log in", font=("Segoe UI", 10),
@@ -61,28 +59,27 @@ class LoginWindow:
         if username in USERS and USERS[username]["password"] == password:
             role = USERS[username]["role"]
             self.login_root.destroy()
-            # Launch main POS with role
             root = tk.Tk()
             app = ModernPOS(root, username, role)
             app.run()
         else:
             self.message_var.set("Invalid username or password")
 
-# ---------- Improved POS System with Roles and Logout ----------
+# ---------- Main POS System with Role-Specific Dashboards ----------
 class ModernPOS:
     def __init__(self, root, username, role):
         self.root = root
         self.username = username
         self.role = role
-        self.root.title(f"✦ POINT OF SALE SYSTEM - Logged in as: {username} ({role}) ✦")
+        self.root.title(f"✦ POS DASHBOARD - {role.upper()} : {username} ✦")
         self.root.geometry("1100x720")
         self.root.minsize(900, 600)
-        self.root.configure(bg="#f0f2f5")
+        self.root.configure(bg="#ffffff")
 
         # Colors & Fonts
         self.BG_PRIMARY = "#1e2a3a"
         self.BG_SECONDARY = "#ffffff"
-        self.BG_MAIN = "#f8fafc"
+        self.BG_MAIN = "#ffffff"
         self.ACCENT = "#3b82f6"
         self.ACCENT_HOVER = "#2563eb"
         self.DANGER = "#ef4444"
@@ -97,7 +94,7 @@ class ModernPOS:
 
         self.setup_styles()
 
-        # Products list (editable by admin only)
+        # Products list (same for all)
         self.products = [
             {"name": "Apple", "price": 10.00},
             {"name": "Banana", "price": 15.00},
@@ -136,20 +133,15 @@ class ModernPOS:
             {"name": "Sandwich", "price": 80.00},
         ]
 
-        self.cart = []          # {name, price, quantity}
+        self.cart = []
         self.tax_rate = tk.DoubleVar(value=10.0)
         self.discount_percent = tk.DoubleVar(value=0.0)
         self.cash_tendered = tk.DoubleVar(value=0.0)
-
-        # For reports: store all completed sales (list of dicts)
         self.transactions = []
 
-        self.setup_ui()
+        self.setup_ui()          # Role‑specific UI
         self.update_cart_ui()
         self.bind_shortcuts()
-
-        # Role-based restrictions
-        self.apply_role_restrictions()
 
     def setup_styles(self):
         style = ttk.Style()
@@ -161,7 +153,7 @@ class ModernPOS:
         style.configure("Heading.TLabel", font=self.FONT_HEADING, foreground="#334155", background=self.BG_SECONDARY)
 
     def setup_ui(self):
-        # ========== LEFT PANEL (ORDER) ==========
+        # ========== LEFT PANEL (ORDER SUMMARY) - same for all ==========
         self.left_frame = ttk.Frame(self.root, style="Left.TFrame", width=380)
         self.left_frame.pack(side="left", fill="y")
         self.left_frame.pack_propagate(False)
@@ -187,38 +179,46 @@ class ModernPOS:
         self.cart_canvas.bind("<Configure>", lambda e: self.cart_canvas.itemconfig(self.canvas_window, width=e.width))
         self.cart_canvas.bind_all("<MouseWheel>", lambda e: self.cart_canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
 
-        # Bottom panel with totals and payment
+        # Bottom panel (varies by role)
         bottom_left = tk.Frame(self.left_frame, bg=self.BG_PRIMARY)
         bottom_left.pack(fill="x", side="bottom", pady=10)
 
-        # Tax & discount row (role-restricted)
-        settings_frame = tk.Frame(bottom_left, bg=self.BG_PRIMARY)
-        settings_frame.pack(fill="x", padx=10, pady=5)
-        tk.Label(settings_frame, text="Tax %:", fg="white", bg=self.BG_PRIMARY, font=self.FONT_SMALL).grid(row=0, column=0, padx=2)
-        self.tax_spin = tk.Spinbox(settings_frame, from_=0, to=100, increment=1, textvariable=self.tax_rate, width=5,
-                                   font=self.FONT_SMALL, command=self.update_cart_ui)
-        self.tax_spin.grid(row=0, column=1, padx=2)
-        tk.Label(settings_frame, text="Discount %:", fg="white", bg=self.BG_PRIMARY, font=self.FONT_SMALL).grid(row=0, column=2, padx=5)
-        self.disc_spin = tk.Spinbox(settings_frame, from_=0, to=100, increment=1, textvariable=self.discount_percent, width=5,
-                                    font=self.FONT_SMALL, command=self.update_cart_ui)
-        self.disc_spin.grid(row=0, column=3, padx=2)
+        # ----- Role-specific controls on the left panel -----
+        if self.role in ["manager", "admin"]:
+            # Tax & discount row (editable)
+            settings_frame = tk.Frame(bottom_left, bg=self.BG_PRIMARY)
+            settings_frame.pack(fill="x", padx=10, pady=5)
 
-        # Total label
+            tk.Label(settings_frame, text="Tax %:", fg="white", bg=self.BG_PRIMARY, font=self.FONT_REGULAR).grid(row=0, column=0, padx=2)
+            self.tax_spin = tk.Spinbox(settings_frame, from_=0, to=100, increment=1, textvariable=self.tax_rate,
+                                       width=8, font=self.FONT_REGULAR, command=self.update_cart_ui)
+            self.tax_spin.grid(row=0, column=1, padx=2)
+
+            tk.Label(settings_frame, text="Discount %:", fg="white", bg=self.BG_PRIMARY, font=self.FONT_REGULAR).grid(row=0, column=2, padx=5)
+            self.disc_spin = tk.Spinbox(settings_frame, from_=0, to=100, increment=1, textvariable=self.discount_percent,
+                                        width=8, font=self.FONT_REGULAR, command=self.update_cart_ui)
+            self.disc_spin.grid(row=0, column=3, padx=2)
+        else:  # Cashier sees no tax/discount controls
+            # Still need to store the variables for code consistency, but hide them.
+            self.tax_spin = None
+            self.disc_spin = None
+
+        # Total label (shows full breakdown for manager/admin, simple total for cashier)
         self.total_var = tk.StringVar(value="Total: $0.00")
         total_label = tk.Label(bottom_left, textvariable=self.total_var, font=("Segoe UI", 16, "bold"),
                                fg="white", bg=self.BG_PRIMARY)
         total_label.pack(pady=(5, 5))
 
-        # Cash tendered
+        # Cash tendered (enlarged for all)
         cash_frame = tk.Frame(bottom_left, bg=self.BG_PRIMARY)
         cash_frame.pack(fill="x", padx=10, pady=5)
-        tk.Label(cash_frame, text="Cash:", fg="white", bg=self.BG_PRIMARY, font=self.FONT_SMALL).pack(side="left")
-        self.cash_entry = tk.Entry(cash_frame, textvariable=self.cash_tendered, width=10, font=self.FONT_REGULAR)
+        tk.Label(cash_frame, text="Cash Tendered:", fg="white", bg=self.BG_PRIMARY, font=self.FONT_REGULAR).pack(side="left")
+        self.cash_entry = tk.Entry(cash_frame, textvariable=self.cash_tendered, width=20, font=("Segoe UI", 12))
         self.cash_entry.pack(side="left", padx=5)
         self.change_var = tk.StringVar(value="Change: $0.00")
-        tk.Label(cash_frame, textvariable=self.change_var, fg="#86efac", bg=self.BG_PRIMARY, font=self.FONT_SMALL).pack(side="left", padx=10)
+        tk.Label(cash_frame, textvariable=self.change_var, fg="#86efac", bg=self.BG_PRIMARY, font=self.FONT_REGULAR).pack(side="left", padx=10)
 
-        # Buttons row (Clear Cart, Checkout, Logout)
+        # Action buttons (Clear Cart, Checkout, Logout) – same for all
         btn_frame = tk.Frame(bottom_left, bg=self.BG_PRIMARY)
         btn_frame.pack(pady=10)
         clear_btn = tk.Button(btn_frame, text="🗑️ Clear Cart", font=self.FONT_BUTTON, bg="#334155", fg="white",
@@ -231,37 +231,43 @@ class ModernPOS:
                                relief="flat", padx=15, pady=5, command=self.logout)
         logout_btn.pack(side="left", padx=5)
 
-        # ========== RIGHT PANEL (PRODUCTS) ==========
+        # ========== RIGHT PANEL (PRODUCTS) - same grid for all ==========
         self.right_frame = ttk.Frame(self.root, style="TFrame")
         self.right_frame.pack(side="right", fill="both", expand=True, padx=20, pady=20)
 
         header_right = tk.Frame(self.right_frame, bg=self.BG_MAIN)
         header_right.pack(fill="x", pady=(0, 15))
-        tk.Label(header_right, text="✨ PRODUCTS MENU", font=self.FONT_TITLE, fg="#0f172a", bg=self.BG_MAIN).pack(anchor="w")
-        tk.Label(header_right, text="Click on any item or use Ctrl+1..8 (first 8 products)", font=self.FONT_SMALL, fg="#64748b", bg=self.BG_MAIN).pack(anchor="w")
 
-        # Search and extra buttons row
-        top_bar = tk.Frame(header_right, bg=self.BG_MAIN)
-        top_bar.pack(fill="x", pady=(10, 0))
+        # Role-specific header text
+        if self.role == "cashier":
+            role_title = "👤 CASHIER DASHBOARD"
+        elif self.role == "manager":
+            role_title = "📊 MANAGER DASHBOARD"
+        else:
+            role_title = "🔧 ADMIN DASHBOARD"
 
-        search_frame = tk.Frame(top_bar, bg=self.BG_MAIN)
-        search_frame.pack(side="left", fill="x", expand=True)
+        tk.Label(header_right, text=role_title, font=self.FONT_TITLE, fg="#0f172a", bg=self.BG_MAIN).pack(anchor="w")
+        tk.Label(header_right, text=f"Logged in as: {self.username} ({self.role})", font=self.FONT_SMALL, fg="#64748b", bg=self.BG_MAIN).pack(anchor="w")
+
+        # Search bar (common)
+        search_frame = tk.Frame(header_right, bg=self.BG_MAIN)
+        search_frame.pack(fill="x", pady=(10, 0))
         tk.Label(search_frame, text="🔍 Search:", font=self.FONT_REGULAR, bg=self.BG_MAIN).pack(side="left")
         self.search_var = tk.StringVar()
         self.search_var.trace("w", lambda *args: self.filter_products())
         search_entry = tk.Entry(search_frame, textvariable=self.search_var, font=self.FONT_REGULAR, width=30)
         search_entry.pack(side="left", padx=10)
 
-        # Admin/Manager buttons (report, admin panel)
+        # Role‑specific buttons on the top bar (Report, Admin Panel)
         self.report_btn = None
         self.admin_panel_btn = None
         if self.role in ["manager", "admin"]:
-            self.report_btn = tk.Button(top_bar, text="📊 Sales Report", font=self.FONT_BUTTON,
+            self.report_btn = tk.Button(search_frame, text="📊 Sales Report", font=self.FONT_BUTTON,
                                         bg=self.WARNING, fg="white", relief="flat", padx=10, pady=3,
                                         command=self.show_sales_report)
             self.report_btn.pack(side="right", padx=5)
         if self.role == "admin":
-            self.admin_panel_btn = tk.Button(top_bar, text="🔧 Admin Panel", font=self.FONT_BUTTON,
+            self.admin_panel_btn = tk.Button(search_frame, text="🔧 Admin Panel", font=self.FONT_BUTTON,
                                              bg=self.ACCENT, fg="white", relief="flat", padx=10, pady=3,
                                              command=self.open_admin_panel)
             self.admin_panel_btn.pack(side="right", padx=5)
@@ -280,30 +286,18 @@ class ModernPOS:
 
         self.filter_products()
 
-    def apply_role_restrictions(self):
-        """Disable features based on role."""
-        if self.role == "cashier":
-            # Cashier cannot change tax/discount
-            self.tax_spin.config(state="disabled")
-            self.disc_spin.config(state="disabled")
-        elif self.role == "manager":
-            self.tax_spin.config(state="normal")
-            self.disc_spin.config(state="normal")
-        elif self.role == "admin":
-            self.tax_spin.config(state="normal")
-            self.disc_spin.config(state="normal")
-
     # ---------- Logout ----------
     def logout(self):
-        """Close the POS window and return to login screen."""
         if messagebox.askyesno("Logout", "Are you sure you want to log out?"):
             self.root.destroy()
-            # Re-open login window
             login = LoginWindow()
             login.login_root.mainloop()
 
-    # ---------- Admin Panel ----------
+    # ---------- Admin Panel (only for admin) ----------
     def open_admin_panel(self):
+        if self.role != "admin":
+            messagebox.showerror("Access Denied", "Only administrators can access this panel.")
+            return
         admin_win = tk.Toplevel(self.root)
         admin_win.title("Admin Panel")
         admin_win.geometry("700x500")
@@ -316,7 +310,6 @@ class ModernPOS:
         product_frame = ttk.Frame(notebook)
         notebook.add(product_frame, text="Manage Products")
 
-        # Treeview for products
         tree_frame = tk.Frame(product_frame)
         tree_frame.pack(fill="both", expand=True, padx=5, pady=5)
         columns = ("name", "price")
@@ -338,7 +331,6 @@ class ModernPOS:
 
         refresh_products()
 
-        # Add/Edit product form
         form_frame = tk.Frame(product_frame, bg=self.BG_MAIN)
         form_frame.pack(fill="x", padx=5, pady=5)
         tk.Label(form_frame, text="Name:", bg=self.BG_MAIN).grid(row=0, column=0, padx=5, pady=2, sticky="e")
@@ -412,14 +404,14 @@ class ModernPOS:
 
         btn_frame = tk.Frame(product_frame, bg=self.BG_MAIN)
         btn_frame.pack(fill="x", pady=5)
-        tk.Button(btn_frame, text="Add", command=add_product, bg=self.SUCCESS, fg="white").pack(side="left", padx=5)
+        tk.Button(btn_frame, text="Add", command=add_product, bg=self.SUCCESS, fg="black").pack(side="left", padx=5)
         tk.Button(btn_frame, text="Update", command=update_product, bg=self.ACCENT, fg="white").pack(side="left", padx=5)
         tk.Button(btn_frame, text="Delete", command=delete_product, bg=self.DANGER, fg="white").pack(side="left", padx=5)
 
         # User management tab (admin only)
         user_frame = ttk.Frame(notebook)
         notebook.add(user_frame, text="Manage Users")
-        tk.Label(user_frame, text="User accounts (demo - hardcoded)", font=self.FONT_HEADING).pack(pady=10)
+        tk.Label(user_frame, text="User accounts", font=self.FONT_HEADING).pack(pady=10)
         user_tree = ttk.Treeview(user_frame, columns=("username", "role"), show="headings", height=8)
         user_tree.heading("username", text="Username")
         user_tree.heading("role", text="Role")
@@ -433,7 +425,6 @@ class ModernPOS:
 
         refresh_users()
 
-        # Add user form (simplified)
         add_user_frame = tk.Frame(user_frame, bg=self.BG_MAIN)
         add_user_frame.pack(fill="x", padx=10, pady=10)
         tk.Label(add_user_frame, text="New Username:").grid(row=0, column=0, padx=5, pady=2)
@@ -465,12 +456,11 @@ class ModernPOS:
 
         tk.Button(add_user_frame, text="Add User", command=add_user, bg=self.SUCCESS, fg="white").grid(row=0, column=6, padx=10)
 
-    # ---------- Reports ----------
+    # ---------- Reports (Manager & Admin) ----------
     def show_sales_report(self):
         if not self.transactions:
             messagebox.showinfo("Sales Report", "No sales recorded yet.")
             return
-
         total_sales = sum(t["total"] for t in self.transactions)
         avg_sale = total_sales / len(self.transactions) if self.transactions else 0
         report = f"===== SALES REPORT =====\nTotal transactions: {len(self.transactions)}\nTotal revenue: ${total_sales:.2f}\nAverage sale: ${avg_sale:.2f}\n\nDetailed list:\n"
@@ -478,7 +468,7 @@ class ModernPOS:
             report += f"{idx}. {t['date']} - ${t['total']:.2f} (items: {t['item_count']})\n"
         messagebox.showinfo("Sales Report", report)
 
-    # ---------- POS Core Methods ----------
+    # ---------- POS Core Methods (unchanged) ----------
     def filter_products(self):
         for widget in self.products_inner.winfo_children():
             widget.destroy()
@@ -501,20 +491,27 @@ class ModernPOS:
                      bg=self.BG_SECONDARY, fg="#1e293b").pack(pady=(12, 5))
             tk.Label(card, text=f"${prod['price']:.2f}", font=("Segoe UI", 12),
                      bg=self.BG_SECONDARY, fg=self.ACCENT).pack(pady=(0, 10))
+            
             add_btn = tk.Button(card, text="➕ Add", font=self.FONT_BUTTON,
-                                bg=self.ACCENT, fg="white", relief="flat", padx=15, pady=4,
-                                activebackground=self.ACCENT_HOVER,
+                                bg="black", fg="white", relief="flat", padx=15, pady=4,
+                                activebackground="#333333", activeforeground="white",
                                 command=lambda p=prod: self.add_to_cart(p["name"], p["price"]))
             add_btn.pack(pady=(0, 12))
 
-            def on_enter(e, c=card):
+            def on_enter(e, c=card, btn=add_btn):
                 c.configure(bg="#f8fafc", highlightbackground="#cbd5e1")
                 for child in c.winfo_children():
-                    child.configure(bg="#f8fafc")
-            def on_leave(e, c=card):
+                    if child is btn:
+                        continue
+                    if isinstance(child, tk.Label):
+                        child.configure(bg="#f8fafc")
+            def on_leave(e, c=card, btn=add_btn):
                 c.configure(bg=self.BG_SECONDARY, highlightbackground="#e2e8f0")
                 for child in c.winfo_children():
-                    child.configure(bg=self.BG_SECONDARY)
+                    if child is btn:
+                        continue
+                    if isinstance(child, tk.Label):
+                        child.configure(bg=self.BG_SECONDARY)
             card.bind("<Enter>", on_enter)
             card.bind("<Leave>", on_leave)
 
@@ -602,7 +599,12 @@ class ModernPOS:
         tax_amount = subtotal * (self.tax_rate.get() / 100)
         discount_amount = subtotal * (self.discount_percent.get() / 100)
         total = subtotal + tax_amount - discount_amount
-        self.total_var.set(f"Sub: ${subtotal:.2f}  Tax: ${tax_amount:.2f}  Disc: -${discount_amount:.2f}\nTotal: ${total:.2f}")
+
+        # Role‑specific total display
+        if self.role == "cashier":
+            self.total_var.set(f"Total: ${total:.2f}")
+        else:
+            self.total_var.set(f"Sub: ${subtotal:.2f}  Tax: ${tax_amount:.2f}  Disc: -${discount_amount:.2f}\nTotal: ${total:.2f}")
 
         cash = self.cash_tendered.get()
         change = cash - total if cash > total else 0
@@ -627,7 +629,6 @@ class ModernPOS:
             messagebox.showerror("Payment Error", f"Insufficient cash. Total is ${total:.2f}, you entered ${cash:.2f}.")
             return
 
-        # Record transaction
         self.transactions.append({
             "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "total": total,
